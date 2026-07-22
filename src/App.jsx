@@ -8,7 +8,7 @@ import photo3 from './assets/riya3.jpeg';
 import musicTrack from './assets/mysong.mp3';
 
 export default function BirthdayPage() {
-  useEffect(() => {
+ useEffect(() => {
     // ---------- inject Google Fonts (was <link> tags in <head>) ----------
     const preconnect = document.createElement('link');
     preconnect.rel = 'preconnect';
@@ -118,19 +118,17 @@ export default function BirthdayPage() {
     exciteYes.addEventListener('click', handleExciteYes);
     exciteNo.addEventListener('click', handleExciteNo);
 
-    // ---------- Background music (your own downloaded track) ----------
+    // ---------- Background music ----------
     const musicToggle = document.getElementById('musicToggle');
     let isPlaying = false;
 
-    // musicTrack is the imported audio file (see the `import musicTrack from
-    // './assets/your-song.mp3'` line near the top of this file).
     const audioEl = new Audio(musicTrack);
     audioEl.loop = true;
     audioEl.volume = 0.5;
     audioEl.preload = 'auto';
 
     function startMusic() {
-      audioEl.muted = true;
+      if (isPlaying) return;
       audioEl
         .play()
         .then(() => {
@@ -140,7 +138,8 @@ export default function BirthdayPage() {
           musicToggle.setAttribute('aria-label', 'Pause background music');
         })
         .catch(() => {
-          /* blocked until a user gesture — the gesture listeners below will retry */
+          // Browser blocked autoplay; waiting for the user to interact
+          console.log("Autoplay waiting for user interaction...");
         });
     }
 
@@ -152,7 +151,8 @@ export default function BirthdayPage() {
       musicToggle.setAttribute('aria-label', 'Play background music');
     }
 
-    function handleMusicToggle() {
+    function handleMusicToggle(e) {
+      if (e) e.stopPropagation(); // Prevents this click from firing global listeners
       if (isPlaying) {
         stopMusic();
       } else {
@@ -160,6 +160,24 @@ export default function BirthdayPage() {
       }
     }
     musicToggle.addEventListener('click', handleMusicToggle);
+
+    // ---------- Autoplay / Play on First Interaction ----------
+    
+    // 1. Try playing immediately 
+    startMusic();
+
+    // 2. Start on the very first tap/click anywhere on the screen
+    function startOnFirstInteraction() {
+      if (!isPlaying) {
+        startMusic();
+      }
+      // Remove listeners once activated so it doesn't run on every click
+      document.removeEventListener('click', startOnFirstInteraction);
+      document.removeEventListener('touchstart', startOnFirstInteraction);
+    }
+
+    document.addEventListener('click', startOnFirstInteraction);
+    document.addEventListener('touchstart', startOnFirstInteraction);
 
     // ---------- Vintage envelope open/close ----------
     const envelope = document.getElementById('envelope');
@@ -169,7 +187,7 @@ export default function BirthdayPage() {
     let envelopeOpenedOnce = false;
     let envelopeConfettiId = null;
 
-    function handleEnvelopeClick() {
+    function handleEnvelopeClick(e) {
       const opening = !envelope.classList.contains('open');
       envelope.classList.toggle('open');
       letterCard.classList.toggle('show', opening);
@@ -181,32 +199,6 @@ export default function BirthdayPage() {
       }
     }
     envelope.addEventListener('click', handleEnvelopeClick);
-
-    // ---------- Attempt autoplay on load, loop forever ----------
-    // Browsers block audio until a user gesture, so we try immediately,
-    // and if blocked, start on the very first tap/click/scroll/key anywhere.
-    function tryAutoplay() {
-      if (isPlaying) return;
-      try {
-        startMusic();
-      } catch (e) {
-        /* will retry on first gesture below */
-      }
-    }
-
-    window.addEventListener('load', tryAutoplay);
-    // In case 'load' already fired before this effect ran, try immediately too.
-    tryAutoplay();
-
-    const gestureEvents = ['click', 'touchstart', 'keydown', 'scroll'];
-    function firstGestureStart() {
-      audioEl.muted = false; 
-      if (!isPlaying) startMusic();
-      gestureEvents.forEach((evt) => window.removeEventListener(evt, firstGestureStart));
-    }
-    gestureEvents.forEach((evt) =>
-      window.addEventListener(evt, firstGestureStart, { once: true, passive: true })
-    );
 
     // ---------- cleanup on unmount ----------
     return () => {
@@ -223,11 +215,14 @@ export default function BirthdayPage() {
       exciteNo.removeEventListener('click', handleExciteNo);
       musicToggle.removeEventListener('click', handleMusicToggle);
       envelope.removeEventListener('click', handleEnvelopeClick);
-      window.removeEventListener('load', tryAutoplay);
-      gestureEvents.forEach((evt) => window.removeEventListener(evt, firstGestureStart));
+      
+      // Clean up global interaction listeners
+      document.removeEventListener('click', startOnFirstInteraction);
+      document.removeEventListener('touchstart', startOnFirstInteraction);
 
       clearTimeout(exciteTimeoutId);
       clearTimeout(envelopeConfettiId);
+      
       audioEl.pause();
       audioEl.src = '';
     };
