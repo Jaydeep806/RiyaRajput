@@ -130,6 +130,7 @@ export default function BirthdayPage() {
     audioEl.preload = 'auto';
 
     function startMusic() {
+      audioEl.muted = true;
       audioEl
         .play()
         .then(() => {
@@ -199,6 +200,7 @@ export default function BirthdayPage() {
 
     const gestureEvents = ['click', 'touchstart', 'keydown', 'scroll'];
     function firstGestureStart() {
+      audioEl.muted = false; 
       if (!isPlaying) startMusic();
       gestureEvents.forEach((evt) => window.removeEventListener(evt, firstGestureStart));
     }
